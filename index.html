@@ -272,14 +272,22 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
       </div>
     </div>
 
-    <!-- COLOR LEGEND -->
-    <div class="legend-grid" style="margin-top:1rem">
-      <div class="legend-item"><span class="legend-dot" style="background:#E63946"></span><span><strong>Gesamtbreite</strong></span></div>
-      <div class="legend-item"><span class="legend-dot" style="background:#2196F3"></span><span><strong>Lochabstand</strong></span></div>
-      <div class="legend-item"><span class="legend-dot" style="background:#FF9800"></span><span><strong>Höhe Auflagefläche</strong></span></div>
-      <div class="legend-item"><span class="legend-dot" style="background:#9C27B0"></span><span><strong>Abstand GT oben</strong></span></div>
-      <div class="legend-item"><span class="legend-dot" style="background:#009688"></span><span><strong>Abstand Schutzblech</strong></span></div>
-      <div class="legend-item"><span class="legend-dot" style="background:#4CAF50"></span><span><strong>Gesamthöhe</strong></span></div>
+    <!-- COLOR LEGEND - split per image -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1rem">
+      <!-- Left image legend -->
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--hint);margin-bottom:.5rem">Draufsicht</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#E63946"></span><span><strong>Gesamtbreite</strong></span></div>
+        <div class="legend-item" style="margin-top:.35rem"><span class="legend-dot" style="background:#2196F3"></span><span><strong>Lochabstand</strong></span></div>
+      </div>
+      <!-- Right image legend -->
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--hint);margin-bottom:.5rem">Seitenansicht</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#FF9800"></span><span><strong>Abstand GT oben</strong></span></div>
+        <div class="legend-item" style="margin-top:.35rem"><span class="legend-dot" style="background:#9C27B0"></span><span><strong>Höhe Auflagefläche</strong></span></div>
+        <div class="legend-item" style="margin-top:.35rem"><span class="legend-dot" style="background:#4CAF50"></span><span><strong>Abst. Schutzblech</strong></span></div>
+        <div class="legend-item" style="margin-top:.35rem"><span class="legend-dot" style="background:#2196F3"></span><span><strong>Gesamthöhe</strong></span></div>
+      </div>
     </div>
   </div>
 
