@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gepäckträger Datenaufnahme</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
   --bg:#F4F2EE;--surface:#FAFAF8;--white:#FFFFFF;
@@ -392,30 +391,7 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
 <div id="view-ana" class="view">
 <div class="container">
   <div class="ana-grid" id="kpi-grid"></div>
-  <div class="charts-grid">
-    <div class="chart-card">
-      <div class="chart-title">Fahrrad-Typen</div>
-      <div class="chart-wrap"><canvas id="chart-typ"></canvas></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">eBike-Anteil</div>
-      <div class="chart-wrap"><canvas id="chart-ebike"></canvas></div>
-    </div>
-    <div class="chart-card chart-wide">
-      <div class="chart-title">Gesamtbreite Verteilung (mm)</div>
-      <div class="chart-wrap" style="height:210px"><canvas id="chart-breite"></canvas></div>
-    </div>
-    <div class="chart-card chart-wide">
-      <div class="chart-title">Lochabstand Verteilung (mm)</div>
-      <div class="chart-wrap" style="height:210px"><canvas id="chart-loch"></canvas></div>
-    </div>
-    <div class="chart-card chart-wide">
-      <div class="chart-title">Maß-Mittelwerte Übersicht (mm)</div>
-      <div class="chart-wrap" style="height:260px"><canvas id="chart-avg"></canvas></div>
-    </div>
-  </div>
-</div>
-</div>
+  <div class="charts-grid" id="css-charts"></div>
 
 <!-- MODAL -->
 <div class="moverlay" id="modal" onclick="closeModalOv(event)">
@@ -702,35 +678,48 @@ function renderAnalytics(){
     {label:'Ø Gesamthöhe',val:avg('gesamthoehe')!=='–'?avg('gesamthoehe')+' mm':'–',sub:minV('gesamthoehe')+'–'+maxV('gesamthoehe')+' mm'},
   ].map(k=>`<div class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
-  const C=['#2D5A3D','#B7490D','#1A5276','#6C3483','#117A65','#7D6608'];
-  const typC={};entries.forEach(e=>{const t=e.typ||'Unbekannt';typC[t]=(typC[t]||0)+1;});
-  if(chartTyp)chartTyp.destroy();
-  chartTyp=new Chart(document.getElementById('chart-typ'),{type:'doughnut',data:{labels:Object.keys(typC),datasets:[{data:Object.values(typC),backgroundColor:C,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:12},padding:10}}}}});
+  // CSS bar charts - no external library needed
+  const CHART_MEAS = [
+    {key:'gesamtbreite', label:'Gesamtbreite',    color:'#E63946'},
+    {key:'lochabstand',  label:'Lochabstand',     color:'#2196F3'},
+    {key:'hoeheAuflage', label:'Höhe Auflage',    color:'#FF9800'},
+    {key:'abstandOben',  label:'Abstand GT oben', color:'#9C27B0'},
+    {key:'abstandSchutz',label:'Abst.Schutzblech',color:'#009688'},
+    {key:'gesamthoehe',  label:'Gesamthöhe',      color:'#4CAF50'},
+  ];
 
-  const ja=entries.filter(e=>e.ebike==='Ja').length,nein=entries.filter(e=>e.ebike==='Nein').length,unk=n-ja-nein;
-  if(chartEbike)chartEbike.destroy();
-  chartEbike=new Chart(document.getElementById('chart-ebike'),{type:'doughnut',data:{labels:['Ja','Nein','Unbekannt'],datasets:[{data:[ja,nein,unk],backgroundColor:['#2D5A3D','#B7490D','#9B968F'],borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:12},padding:10}}}}});
+  // Replace canvas charts with CSS bars
+  const chartsHtml = `
+    <div style="margin-bottom:1.25rem">
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:.75rem">Mittelwerte (mm)</div>
+      ${CHART_MEAS.map(m => {
+        const v = avg(m.key); const maxV2 = Math.max(...CHART_MEAS.map(x => { const a=avg(x.key); return a==='–'?0:parseFloat(a); }).filter(x=>x>0), 1);
+        const w = v==='–' ? 0 : Math.round(parseFloat(v)/maxV2*100);
+        return `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;font-size:13px">
+          <div style="width:140px;text-align:right;color:var(--muted);font-size:12px">${m.label}</div>
+          <div style="flex:1;background:#f0f0ec;border-radius:4px;height:22px;overflow:hidden">
+            <div style="width:${w}%;height:100%;background:${m.color};border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;font-size:11px;font-weight:600;min-width:2px;transition:width .4s">${v!=='–'?v+' mm':''}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:.75rem">Fahrrad-Typen</div>
+        ${(() => { const typC={}; entries.forEach(e=>{const t=e.typ||'Unbekannt';typC[t]=(typC[t]||0)+1;}); const maxT=Math.max(...Object.values(typC),1); const colors={'Trekking':'#2D5A3D','Gravel':'#B7490D','City/Urban':'#1A5276'}; return Object.keys(typC).map(t=>`<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:12px"><div style="width:80px;text-align:right;color:var(--muted)">${t}</div><div style="flex:1;background:#f0f0ec;border-radius:3px;height:18px;overflow:hidden"><div style="width:${Math.round(typC[t]/maxT*100)}%;height:100%;background:${colors[t]||'#6C3483'};display:flex;align-items:center;padding-left:6px;color:#fff;font-size:11px;font-weight:600">${typC[t]}</div></div></div>`).join(''); })()}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:.75rem">eBike-Anteil</div>
+        ${(() => { const ja=entries.filter(e=>e.ebike==='Ja').length; const nein=entries.filter(e=>e.ebike==='Nein').length; const maxE=Math.max(ja,nein,1); return [['Ja',ja,'#2D5A3D'],['Nein',nein,'#B7490D']].map(([l,v,c])=>`<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:12px"><div style="width:80px;text-align:right;color:var(--muted)">${l}</div><div style="flex:1;background:#f0f0ec;border-radius:3px;height:18px;overflow:hidden"><div style="width:${Math.round(v/maxE*100)}%;height:100%;background:${c};display:flex;align-items:center;padding-left:6px;color:#fff;font-size:11px;font-weight:600">${v}</div></div></div>`).join(''); })()}
+      </div>
+    </div>`;
 
-  function hist(key,bin){
-    const v=entries.map(e=>parseFloat(e[key])).filter(v=>!isNaN(v)&&v>0);
-    if(!v.length)return{labels:[],data:[]};
-    const mn=Math.floor(Math.min(...v)/bin)*bin,mx=Math.ceil(Math.max(...v)/bin)*bin;
-    const bins={};for(let b=mn;b<=mx;b+=bin)bins[b]=0;
-    v.forEach(val=>{const b=Math.floor(val/bin)*bin;bins[b]=(bins[b]||0)+1;});
-    return{labels:Object.keys(bins).map(b=>b+'–'+(+b+bin)),data:Object.values(bins)};
+  // Replace all canvas elements with CSS charts
+  const anaView = document.getElementById('view-ana');
+  const chartsDiv = anaView.querySelector('.charts-grid') || anaView;
+  if (anaView.querySelector('.charts-grid')) {
+    anaView.querySelector('.charts-grid').innerHTML = chartsHtml;
   }
-
-  const bh=hist('gesamtbreite',10);
-  if(chartBreite)chartBreite.destroy();
-  chartBreite=new Chart(document.getElementById('chart-breite'),{type:'bar',data:{labels:bh.labels,datasets:[{label:'Anzahl',data:bh.data,backgroundColor:'#E6394688',borderColor:'#E63946',borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
-
-  const lh=hist('lochabstand',5);
-  if(chartLoch)chartLoch.destroy();
-  chartLoch=new Chart(document.getElementById('chart-loch'),{type:'bar',data:{labels:lh.labels,datasets:[{label:'Anzahl',data:lh.data,backgroundColor:'#2196F388',borderColor:'#2196F3',borderWidth:1.5}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
-
-  const avgs=MEAS.map(m=>{const v=avg(m.key);return v==='–'?0:parseFloat(v);});
-  if(chartAvg)chartAvg.destroy();
-  chartAvg=new Chart(document.getElementById('chart-avg'),{type:'bar',data:{labels:MEAS.map(m=>m.label),datasets:[{label:'Mittelwert mm',data:avgs,backgroundColor:MEAS.map(m=>m.color+'99'),borderColor:MEAS.map(m=>m.color),borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true}}}});
 }
 
 
