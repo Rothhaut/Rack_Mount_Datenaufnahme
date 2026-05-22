@@ -534,7 +534,7 @@ document.querySelectorAll('input[name=typ]').forEach(r=>r.addEventListener('chan
   document.getElementById('anderes-field').style.display=(r.value==='Anderes'&&r.checked)?'block':'none';
 }));
 
-function saveEntry(){
+async function saveEntry(){
   const fahrrad=document.getElementById('f-fahrrad').value.trim();
   if(!fahrrad){toast('Bitte Fahrradbezeichnung eingeben',true);return;}
   const btn=document.getElementById('save-btn');
@@ -641,12 +641,14 @@ function openModal(id){
 }
 function closeModalOv(e){if(e.target.id==='modal')document.getElementById('modal').classList.remove('open');}
 
-function deleteEntry(id,fromModal){
+async function deleteEntry(id,fromModal){
   if(!confirm('Eintrag wirklich löschen?')) return;
   const entry = allEntries.find(e=>e.id===id);
-  if (entry && entry._dbId) {
-    await sbFetch('DELETE', SB_TABLE + '?id=eq.' + entry._dbId);
-  }
+  try {
+    if (entry && entry._dbId) {
+      await sbFetch('DELETE', SB_TABLE + '?id=eq.' + entry._dbId);
+    }
+  } catch(e) { toast('Fehler: '+e.message, true); return; }
   allEntries=allEntries.filter(e=>e.id!==id);
   if(fromModal) document.getElementById('modal').classList.remove('open');
   toast('Eintrag gelöscht'); renderDB();
@@ -726,7 +728,7 @@ function renderAnalytics(){
 
 
 
-init();
+document.addEventListener("DOMContentLoaded", function() { init(); });
 </script>
 </body>
 </html>
