@@ -411,25 +411,23 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
 <div id="toast"></div>
 
 <script>
-let allEntries = [];
-let pendingImages = [];
-let activeFilter = 'Alle';
-let chartTyp, chartEbike, chartBreite, chartLoch, chartAvg;
-
-const MEAS = [
-  { key:'gesamtbreite',  label:'Gesamtbreite',       color:'#E63946' },
-  { key:'lochabstand',   label:'Lochabstand',         color:'#2196F3' },
-  { key:'hoeheAuflage',  label:'Höhe Auflagefläche',  color:'#FF9800' },
-  { key:'abstandOben',   label:'Abstand GT oben',     color:'#9C27B0' },
-  { key:'abstandSchutz', label:'Abstand Schutzblech', color:'#009688' },
-  { key:'gesamthoehe',   label:'Gesamthöhe',          color:'#4CAF50' },
-];
-
-// ── Supabase Config ──────────────────────────────────────
-const SB_URL = 'https://bkwhzhzczwanqenlyxqp.supabase.co';
-const SB_KEY = 'sb_publishable_3pP-Q55eYjyYbl9Zi5IdSA_rl0ziMI1';
+// ── Supabase Config ───────────────────────────────────────
+const SB_URL   = 'https://bkwhzhzczwanqenlyxqp.supabase.co';
+const SB_KEY   = 'sb_publishable_3pP-Q55eYjyYbl9Zi5IdSA_rl0ziMI1';
 const SB_TABLE = 'gepaecktraeger';
 
+const MEAS = [
+  {key:'gesamtbreite', label:'Gesamtbreite',       color:'#E63946'},
+  {key:'lochabstand',  label:'Lochabstand',         color:'#2196F3'},
+  {key:'hoeheAuflage', label:'Höhe Auflagefläche',  color:'#FF9800'},
+  {key:'abstandOben',  label:'Abstand GT oben',     color:'#9C27B0'},
+  {key:'abstandSchutz',label:'Abstand Schutzblech', color:'#009688'},
+  {key:'gesamthoehe',  label:'Gesamthöhe',          color:'#4CAF50'},
+];
+
+let allEntries = [], pendingImages = [], activeFilter = 'Alle';
+
+// ── Supabase helpers ──────────────────────────────────────
 async function sbFetch(method, path, body) {
   const r = await fetch(SB_URL + '/rest/v1/' + path, {
     method: method,
@@ -446,6 +444,26 @@ async function sbFetch(method, path, body) {
   return r.json();
 }
 
+function sbRowToEntry(row) {
+  return {
+    id:           row.entry_id || String(row.id),
+    _dbId:        row.id,
+    fahrrad:      row.fahrrad       || '',
+    typ:          row.typ           || '',
+    ebike:        row.ebike         || '',
+    gesamtbreite: row.gesamtbreite  != null ? String(row.gesamtbreite)  : '',
+    lochabstand:  row.lochabstand   != null ? String(row.lochabstand)   : '',
+    hoeheAuflage: row.hoeheauflage  != null ? String(row.hoeheauflage)  : '',
+    abstandOben:  row.abstandoben   != null ? String(row.abstandoben)   : '',
+    abstandSchutz:row.abstandschutz != null ? String(row.abstandschutz) : '',
+    gesamthoehe:  row.gesamthoehe   != null ? String(row.gesamthoehe)   : '',
+    notizen:      row.notizen       || '',
+    datum:        row.datum         || row.created_at,
+    bilder: (function(){ try { return JSON.parse(row.bilder_json || '[]'); } catch(e){ return []; } })()
+  };
+}
+
+// ── Init ──────────────────────────────────────────────────
 async function init() {
   setStatus('loading', '&#128261; Verbinde mit Datenbank…');
   try {
@@ -457,150 +475,144 @@ async function init() {
   }
 }
 
-function sbRowToEntry(row) {
-  return {
-    id:           row.entry_id || row.id,
-    _dbId:        row.id,
-    fahrrad:      row.fahrrad      || '',
-    typ:          row.typ          || '',
-    ebike:        row.ebike        || '',
-    gesamtbreite: row.gesamtbreite != null ? String(row.gesamtbreite) : '',
-    lochabstand:  row.lochabstand  != null ? String(row.lochabstand)  : '',
-    hoeheAuflage: row.hoeheauflage != null ? String(row.hoeheauflage) : '',
-    abstandOben:  row.abstandoben  != null ? String(row.abstandoben)  : '',
-    abstandSchutz:row.abstandschutz!= null ? String(row.abstandschutz): '',
-    gesamthoehe:  row.gesamthoehe  != null ? String(row.gesamthoehe)  : '',
-    notizen:      row.notizen      || '',
-    datum:        row.datum        || row.created_at,
-    bilder: (() => { try { return JSON.parse(row.bilder_json || '[]'); } catch(e) { return []; } })()
-  };
-}
-
-function setStatus(t,h){ const el=document.getElementById('api-status'); el.className='status-bar '+t; el.innerHTML=h; }
-
 async function loadDB() {
   try {
     const data = await sbFetch('GET', SB_TABLE + '?order=datum.desc&limit=500');
     allEntries = (data || []).map(sbRowToEntry);
     renderDB();
     toast('Aktualisiert (' + allEntries.length + ' Einträge)');
-  } catch(e) { toast('Fehler: '+e.message, true); }
+    setStatus('ok', '&#10003; Verbunden — ' + allEntries.length + ' Einträge');
+  } catch(e) { toast('Fehler: ' + e.message, true); }
 }
 
-function showView(n,btn) {
-  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.htab').forEach(b=>b.classList.remove('active'));
-  document.getElementById('view-'+n).classList.add('active');
+// ── View switching ────────────────────────────────────────
+function showView(n, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.htab').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + n).classList.add('active');
   btn.classList.add('active');
-  if(n==='db') renderDB();
-  if(n==='ana') renderAnalytics();
+  if (n === 'db') renderDB();
+  if (n === 'ana') renderAnalytics();
 }
 
-function toast(msg,isErr) {
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.className='show'+(isErr?' error':'');
-  clearTimeout(el._t); el._t=setTimeout(()=>el.className='',2600);
+function setStatus(t, h) { const el = document.getElementById('api-status'); el.className = 'status-bar ' + t; el.innerHTML = h; }
+
+function toast(msg, isErr) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show' + (isErr ? ' error' : '');
+  clearTimeout(el._t); el._t = setTimeout(() => el.className = '', 2800);
 }
 
-// Image handling
-const uz=document.getElementById('upload-zone');
-uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag-over');});
-uz.addEventListener('dragleave',()=>uz.classList.remove('drag-over'));
-uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag-over');handleFiles(e.dataTransfer.files);});
-function handleImages(ev){handleFiles(ev.target.files);}
-function handleFiles(files){
-  Array.from(files).forEach(file=>{
-    if(!file.type.startsWith('image/')) return;
-    const reader=new FileReader();
-    reader.onload=e=>{
-      const img=new Image(); img.onload=()=>{
-        const c=document.createElement('canvas'),maxW=800,ratio=Math.min(1,maxW/img.width);
-        c.width=Math.round(img.width*ratio); c.height=Math.round(img.height*ratio);
-        c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-        pendingImages.push({name:file.name,dataUrl:c.toDataURL('image/jpeg',0.75)});
+// ── Image handling ────────────────────────────────────────
+const uz = document.getElementById('upload-zone');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag-over'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag-over'));
+uz.addEventListener('drop', e => { e.preventDefault(); uz.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
+function handleImages(ev) { handleFiles(ev.target.files); }
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image(); img.onload = () => {
+        const c = document.createElement('canvas'), maxW = 800, ratio = Math.min(1, maxW/img.width);
+        c.width = Math.round(img.width*ratio); c.height = Math.round(img.height*ratio);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        pendingImages.push({ name: file.name, dataUrl: c.toDataURL('image/jpeg', 0.75) });
         renderPreviews();
-      }; img.src=e.target.result;
+      }; img.src = e.target.result;
     }; reader.readAsDataURL(file);
   });
 }
-function renderPreviews(){
-  document.getElementById('image-previews').innerHTML=pendingImages.map((img,i)=>
+function renderPreviews() {
+  document.getElementById('image-previews').innerHTML = pendingImages.map((img, i) =>
     `<div class="pthumb"><img src="${img.dataUrl}"><button class="rm" onclick="rmImg(${i})">&#10005;</button></div>`
   ).join('');
 }
-function rmImg(i){pendingImages.splice(i,1);renderPreviews();}
+function rmImg(i) { pendingImages.splice(i, 1); renderPreviews(); }
 
-document.querySelectorAll('input[name=typ]').forEach(r=>r.addEventListener('change',()=>{
-  document.getElementById('anderes-field').style.display=(r.value==='Anderes'&&r.checked)?'block':'none';
+document.querySelectorAll('input[name=typ]').forEach(r => r.addEventListener('change', () => {
+  document.getElementById('anderes-field').style.display = (r.value==='Anderes' && r.checked) ? 'block' : 'none';
 }));
 
-async function saveEntry(){
-  const fahrrad=document.getElementById('f-fahrrad').value.trim();
-  if(!fahrrad){toast('Bitte Fahrradbezeichnung eingeben',true);return;}
-  const btn=document.getElementById('save-btn');
-  btn.disabled=true; btn.textContent='Speichern…';
-  const typEl=document.querySelector('input[name=typ]:checked');
-  let typ=typEl?typEl.value:'';
-  if(typ==='Anderes'){const a=document.getElementById('f-anderes').value.trim();if(a)typ=a;}
-  const ebikeEl=document.querySelector('input[name=ebike]:checked');
-  const entry={
-    id:'e_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-    fahrrad,typ,ebike:ebikeEl?ebikeEl.value:'',
-    gesamtbreite:document.getElementById('f-gesamtbreite').value||'',
-    lochabstand:document.getElementById('f-lochabstand').value||'',
-    hoeheAuflage:document.getElementById('f-hoeheAuflage').value||'',
-    abstandOben:document.getElementById('f-abstandOben').value||'',
-    abstandSchutz:document.getElementById('f-abstandSchutz').value||'',
-    gesamthoehe:document.getElementById('f-gesamthoehe').value||'',
-    notizen:document.getElementById('f-notizen').value.trim(),
-    bilder:pendingImages.map(i=>({name:i.name,dataUrl:i.dataUrl})),
-    datum:new Date().toISOString()
+// ── Save entry ────────────────────────────────────────────
+async function saveEntry() {
+  const fahrrad = document.getElementById('f-fahrrad').value.trim();
+  if (!fahrrad) { toast('Bitte Fahrradbezeichnung eingeben', true); return; }
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true; btn.textContent = 'Speichern…';
+
+  const typEl = document.querySelector('input[name=typ]:checked');
+  let typ = typEl ? typEl.value : '';
+  if (typ === 'Anderes') { const a = document.getElementById('f-anderes').value.trim(); if (a) typ = a; }
+  const ebikeEl = document.querySelector('input[name=ebike]:checked');
+  const pf = v => { const f = parseFloat(v); return isNaN(f) ? null : f; };
+  const id = 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+
+  const row = {
+    entry_id:      id,
+    fahrrad:       fahrrad,
+    typ:           typ,
+    ebike:         ebikeEl ? ebikeEl.value : '',
+    gesamtbreite:  pf(document.getElementById('f-gesamtbreite').value),
+    lochabstand:   pf(document.getElementById('f-lochabstand').value),
+    hoeheauflage:  pf(document.getElementById('f-hoeheAuflage').value),
+    abstandoben:   pf(document.getElementById('f-abstandOben').value),
+    abstandschutz: pf(document.getElementById('f-abstandSchutz').value),
+    gesamthoehe:   pf(document.getElementById('f-gesamthoehe').value),
+    notizen:       document.getElementById('f-notizen').value.trim(),
+    datum:         new Date().toISOString(),
+    bilder_json:   JSON.stringify(pendingImages.map(i => ({name:i.name, dataUrl:i.dataUrl})))
   };
-  try{
-    allEntries.push(entry);
-    saveToStorage(allEntries);
+
+  try {
+    const created = await sbFetch('POST', SB_TABLE, row);
+    const entry = sbRowToEntry(Object.assign({}, row, {id: created[0].id}));
+    entry.bilder = pendingImages.slice();
+    allEntries.unshift(entry);
     toast('Eintrag gespeichert ✓');
     resetForm();
-    setStatus('ok','&#10003; Verbunden — '+allEntries.length+' Einträge in Datenbank');
-  } catch(e){ allEntries.pop(); toast('Fehler: '+e.message,true); }
-  btn.disabled=false; btn.innerHTML='&#128190; Eintrag speichern';
+    setStatus('ok', '&#10003; ' + allEntries.length + ' Einträge in Datenbank');
+  } catch(e) {
+    toast('Fehler: ' + e.message, true);
+  }
+  btn.disabled = false; btn.innerHTML = '&#128190; Eintrag speichern';
 }
 
-function resetForm(){
-  document.getElementById('f-fahrrad').value='';
-  document.querySelectorAll('input[name=typ],input[name=ebike]').forEach(r=>r.checked=false);
-  document.getElementById('anderes-field').style.display='none';
-  document.getElementById('f-anderes').value='';
-  ['f-gesamtbreite','f-lochabstand','f-hoeheAuflage','f-abstandOben','f-abstandSchutz','f-gesamthoehe','f-notizen'].forEach(id=>document.getElementById(id).value='');
-  pendingImages=[]; renderPreviews();
-  document.getElementById('img-input').value='';
+function resetForm() {
+  document.getElementById('f-fahrrad').value = '';
+  document.querySelectorAll('input[name=typ],input[name=ebike]').forEach(r => r.checked = false);
+  document.getElementById('anderes-field').style.display = 'none';
+  document.getElementById('f-anderes').value = '';
+  ['f-gesamtbreite','f-lochabstand','f-hoeheAuflage','f-abstandOben','f-abstandSchutz','f-gesamthoehe','f-notizen'].forEach(id => document.getElementById(id).value = '');
+  pendingImages = []; renderPreviews();
+  document.getElementById('img-input').value = '';
 }
 
-function setFilter(f,btn){
-  activeFilter=f;
-  document.querySelectorAll('.fbtn').forEach(b=>b.classList.remove('active'));
+// ── DB render ─────────────────────────────────────────────
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active'); renderDB();
 }
 
-function renderDB(){
-  let entries=[...allEntries];
-  document.getElementById('st-total').textContent=entries.length;
-  document.getElementById('st-ebike').textContent=entries.filter(e=>e.ebike==='Ja').length;
-  const q=(document.getElementById('search-input').value||'').toLowerCase();
-  if(activeFilter!=='Alle') entries=entries.filter(e=>(e.typ||'').toLowerCase().includes(activeFilter.toLowerCase()));
-  if(q) entries=entries.filter(e=>(e.fahrrad||'').toLowerCase().includes(q)||(e.typ||'').toLowerCase().includes(q)||(e.notizen||'').toLowerCase().includes(q));
-  entries.sort((a,b)=>new Date(b.datum)-new Date(a.datum));
+function renderDB() {
+  let entries = [...allEntries];
+  document.getElementById('st-total').textContent = entries.length;
+  document.getElementById('st-ebike').textContent = entries.filter(e => e.ebike==='Ja').length;
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  if (activeFilter !== 'Alle') entries = entries.filter(e => (e.typ||'').toLowerCase().includes(activeFilter.toLowerCase()));
+  if (q) entries = entries.filter(e => (e.fahrrad||'').toLowerCase().includes(q)||(e.typ||'').toLowerCase().includes(q)||(e.notizen||'').toLowerCase().includes(q));
+  entries.sort((a,b) => new Date(b.datum) - new Date(a.datum));
 
-  const grid=document.getElementById('entries-grid');
-  if(!entries.length){
-    grid.innerHTML='<div class="empty"><div class="eico">&#128203;</div><p>Keine Einträge gefunden</p></div>';
-    return;
-  }
-  function typBadge(t){const m={'Trekking':'bt','Gravel':'bg','City/Urban':'bc'};return t?`<span class="badge ${m[t]||'ba'}">${t}</span>`:'';}
-  function mm(v,c){return v?`<span class="mv" style="color:${c}">${v}</span><span class="mu">mm</span>`:`<span class="mv" style="color:var(--hint)">—</span>`;}
-  function fmtD(iso){return new Date(iso).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+new Date(iso).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});}
+  const grid = document.getElementById('entries-grid');
+  if (!entries.length) { grid.innerHTML = '<div class="empty"><div class="eico">&#128203;</div><p>Keine Einträge gefunden</p></div>'; return; }
 
-  grid.innerHTML=entries.map(e=>`
+  function typBadge(t) { const m={'Trekking':'bt','Gravel':'bg','City/Urban':'bc'}; return t ? `<span class="badge ${m[t]||'ba'}">${t}</span>` : ''; }
+  function mm(v,c) { return v ? `<span class="mv" style="color:${c}">${v}</span><span class="mu">mm</span>` : `<span class="mv" style="color:var(--hint)">—</span>`; }
+  function fmtD(iso) { return new Date(iso).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+new Date(iso).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}); }
+
+  grid.innerHTML = entries.map(e => `
     <div class="ecard" onclick="openModal('${e.id}')">
       <div class="ecard-head">
         <div><div class="ecard-title">${e.fahrrad}</div><div class="ecard-date">${fmtD(e.datum)}</div></div>
@@ -618,117 +630,96 @@ function renderDB(){
     </div>`).join('');
 }
 
-function openModal(id){
-  const e=allEntries.find(x=>x.id===id); if(!e) return;
-  document.getElementById('modal-title').textContent=e.fahrrad;
-  document.getElementById('modal-del').onclick=()=>deleteEntry(id,true);
-  function typBadge(t){const m={'Trekking':'bt','Gravel':'bg','City/Urban':'bc'};return t?`<span class="badge ${m[t]||'ba'}">${t}</span>`:'';}
-  let body=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem">
-    ${typBadge(e.typ)}${e.ebike?`<span class="badge be">${e.ebike==='Ja'?'&#9889; eBike':'Kein eBike'}</span>`:''}
-  </div>
-  <div class="msec">Maße</div>
-  <div class="mmgrid">
-    ${MEAS.map(m=>`<div class="mmrow" style="border-left:3px solid ${m.color}">
-      <span class="mmlabel"><span class="ml-dot" style="background:${m.color}"></span>${m.label}</span>
-      <span class="mmval">${e[m.key]?e[m.key]+' mm':'—'}</span>
-    </div>`).join('')}
+// ── Modal ─────────────────────────────────────────────────
+function openModal(id) {
+  const e = allEntries.find(x => x.id===id); if (!e) return;
+  document.getElementById('modal-title').textContent = e.fahrrad;
+  document.getElementById('modal-del').onclick = () => deleteEntry(id, true);
+  function typBadge(t){const m={'Trekking':'bt','Gravel':'bg','City/Urban':'bc'};return t?`<span class="badge ${m[t]||'ba'}">${t}</span>`:''}
+  let body = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem">${typBadge(e.typ)}${e.ebike?`<span class="badge be">${e.ebike==='Ja'?'&#9889; eBike':'Kein eBike'}</span>`:''}</div>
+  <div class="msec">Maße</div><div class="mmgrid">
+    ${MEAS.map(m=>`<div class="mmrow" style="border-left:3px solid ${m.color}"><span class="mmlabel"><span class="ml-dot" style="background:${m.color}"></span>${m.label}</span><span class="mmval">${e[m.key]?e[m.key]+' mm':'—'}</span></div>`).join('')}
   </div>`;
-  if(e.notizen) body+=`<div class="msec">Notizen</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.75rem 1rem;font-size:14px;color:var(--muted)">${e.notizen}</div>`;
-  if(e.bilder&&e.bilder.length) body+=`<div class="msec">Bilder (${e.bilder.length})</div><div class="mimages">${e.bilder.map(img=>`<div class="mimg" onclick="window.open('${img.dataUrl}','_blank')"><img src="${img.dataUrl}"></div>`).join('')}</div>`;
-  body+=`<div style="font-size:12px;color:var(--hint);margin-top:1.25rem">Aufgenommen: ${new Date(e.datum).toLocaleString('de-DE')}</div>`;
-  document.getElementById('modal-body').innerHTML=body;
+  if (e.notizen) body += `<div class="msec">Notizen</div><div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:.75rem 1rem;font-size:14px;color:var(--muted)">${e.notizen}</div>`;
+  if (e.bilder && e.bilder.length) body += `<div class="msec">Bilder (${e.bilder.length})</div><div class="mimages">${e.bilder.map(img=>`<div class="mimg" onclick="window.open('${img.dataUrl}','_blank')"><img src="${img.dataUrl}"></div>`).join('')}</div>`;
+  body += `<div style="font-size:12px;color:var(--hint);margin-top:1.25rem">Aufgenommen: ${new Date(e.datum).toLocaleString('de-DE')}</div>`;
+  document.getElementById('modal-body').innerHTML = body;
   document.getElementById('modal').classList.add('open');
 }
-function closeModalOv(e){if(e.target.id==='modal')document.getElementById('modal').classList.remove('open');}
+function closeModalOv(e) { if (e.target.id === 'modal') document.getElementById('modal').classList.remove('open'); }
 
-async function deleteEntry(id,fromModal){
-  if(!confirm('Eintrag wirklich löschen?')) return;
-  const entry = allEntries.find(e=>e.id===id);
+// ── Delete ────────────────────────────────────────────────
+async function deleteEntry(id, fromModal) {
+  if (!confirm('Eintrag wirklich löschen?')) return;
+  const entry = allEntries.find(e => e.id===id);
   try {
     if (entry && entry._dbId) {
       await sbFetch('DELETE', SB_TABLE + '?id=eq.' + entry._dbId);
     }
-  } catch(e) { toast('Fehler: '+e.message, true); return; }
-  allEntries=allEntries.filter(e=>e.id!==id);
-  if(fromModal) document.getElementById('modal').classList.remove('open');
+  } catch(e) { toast('Fehler: ' + e.message, true); return; }
+  allEntries = allEntries.filter(e => e.id !== id);
+  if (fromModal) document.getElementById('modal').classList.remove('open');
   toast('Eintrag gelöscht'); renderDB();
-  if(document.getElementById('view-ana').classList.contains('active')) renderAnalytics();
 }
 
-function exportCSV(){
-  if(!allEntries.length){toast('Keine Daten',true);return;}
-  const h=['ID','Datum','Fahrrad','Typ','eBike','Gesamtbreite_mm','Lochabstand_mm','HoeheAuflage_mm','AbstandOben_mm','AbstandSchutz_mm','Gesamthoehe_mm','Notizen','Bilder'];
-  const rows=allEntries.map(e=>[e.id,new Date(e.datum).toLocaleString('de-DE'),`"${(e.fahrrad||'').replace(/"/g,'""')}"`,e.typ||'',e.ebike||'',e.gesamtbreite||'',e.lochabstand||'',e.hoeheAuflage||'',e.abstandOben||'',e.abstandSchutz||'',e.gesamthoehe||'',`"${(e.notizen||'').replace(/"/g,'""')}"` ,(e.bilder||[]).length].join(';'));
-  const csv=[h.join(';'),...rows].join('\n');
-  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='gepaecktraeger_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+// ── CSV Export ────────────────────────────────────────────
+function exportCSV() {
+  if (!allEntries.length) { toast('Keine Daten', true); return; }
+  const h = ['ID','Datum','Fahrrad','Typ','eBike','Gesamtbreite_mm','Lochabstand_mm','HoeheAuflage_mm','AbstandOben_mm','AbstandSchutz_mm','Gesamthoehe_mm','Notizen','Bilder'];
+  const rows = allEntries.map(e => [e.id, new Date(e.datum).toLocaleString('de-DE'), `"${(e.fahrrad||'').replace(/"/g,'""')}"`, e.typ||'', e.ebike||'', e.gesamtbreite||'', e.lochabstand||'', e.hoeheAuflage||'', e.abstandOben||'', e.abstandSchutz||'', e.gesamthoehe||'', `"${(e.notizen||'').replace(/"/g,'""')}"`, (e.bilder||[]).length].join(';'));
+  const csv = [h.join(';'), ...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'gepaecktraeger_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
   URL.revokeObjectURL(url); toast('CSV exportiert');
 }
 
-function renderAnalytics(){
-  const entries=allEntries, n=entries.length;
-  function avg(key){const v=entries.map(e=>parseFloat(e[key])).filter(v=>!isNaN(v)&&v>0);return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):'–';}
-  function minV(k){const v=entries.map(e=>parseFloat(e[k])).filter(v=>!isNaN(v)&&v>0);return v.length?Math.min(...v):'–';}
-  function maxV(k){const v=entries.map(e=>parseFloat(e[k])).filter(v=>!isNaN(v)&&v>0);return v.length?Math.max(...v):'–';}
+// ── Analytics ─────────────────────────────────────────────
+function renderAnalytics() {
+  const entries = allEntries, n = entries.length;
+  function avg(key) { const v=entries.map(e=>parseFloat(e[key])).filter(v=>!isNaN(v)&&v>0); return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1):'–'; }
+  function minV(k) { const v=entries.map(e=>parseFloat(e[k])).filter(v=>!isNaN(v)&&v>0); return v.length?Math.min(...v):'–'; }
+  function maxV(k) { const v=entries.map(e=>parseFloat(e[k])).filter(v=>!isNaN(v)&&v>0); return v.length?Math.max(...v):'–'; }
 
-  document.getElementById('kpi-grid').innerHTML=[
-    {label:'Einträge gesamt',val:n,sub:'Datenbank'},
-    {label:'davon eBike',val:entries.filter(e=>e.ebike==='Ja').length,sub:n>0?Math.round(entries.filter(e=>e.ebike==='Ja').length/n*100)+'%':''},
-    {label:'Ø Gesamtbreite',val:avg('gesamtbreite')!=='–'?avg('gesamtbreite')+' mm':'–',sub:minV('gesamtbreite')+'–'+maxV('gesamtbreite')+' mm'},
-    {label:'Ø Lochabstand',val:avg('lochabstand')!=='–'?avg('lochabstand')+' mm':'–',sub:minV('lochabstand')+'–'+maxV('lochabstand')+' mm'},
-    {label:'Ø Gesamthöhe',val:avg('gesamthoehe')!=='–'?avg('gesamthoehe')+' mm':'–',sub:minV('gesamthoehe')+'–'+maxV('gesamthoehe')+' mm'},
+  document.getElementById('kpi-grid').innerHTML = [
+    {label:'Einträge gesamt', val:n, sub:'Supabase Datenbank'},
+    {label:'davon eBike', val:entries.filter(e=>e.ebike==='Ja').length, sub:n>0?Math.round(entries.filter(e=>e.ebike==='Ja').length/n*100)+'%':''},
+    {label:'Ø Gesamtbreite', val:avg('gesamtbreite')!=='–'?avg('gesamtbreite')+' mm':'–', sub:minV('gesamtbreite')+'–'+maxV('gesamtbreite')+' mm'},
+    {label:'Ø Lochabstand', val:avg('lochabstand')!=='–'?avg('lochabstand')+' mm':'–', sub:minV('lochabstand')+'–'+maxV('lochabstand')+' mm'},
+    {label:'Ø Gesamthöhe', val:avg('gesamthoehe')!=='–'?avg('gesamthoehe')+' mm':'–', sub:minV('gesamthoehe')+'–'+maxV('gesamthoehe')+' mm'},
   ].map(k=>`<div class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-val">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
-  // CSS bar charts - no external library needed
-  const CHART_MEAS = [
-    {key:'gesamtbreite', label:'Gesamtbreite',    color:'#E63946'},
-    {key:'lochabstand',  label:'Lochabstand',     color:'#2196F3'},
-    {key:'hoeheAuflage', label:'Höhe Auflage',    color:'#FF9800'},
-    {key:'abstandOben',  label:'Abstand GT oben', color:'#9C27B0'},
-    {key:'abstandSchutz',label:'Abst.Schutzblech',color:'#009688'},
-    {key:'gesamthoehe',  label:'Gesamthöhe',      color:'#4CAF50'},
-  ];
+  // CSS bar charts
+  const maxAvg = Math.max(...MEAS.map(m => { const v=avg(m.key); return v==='–'?0:parseFloat(v); }), 1);
+  const typC = {}; entries.forEach(e => { const t=e.typ||'Unbekannt'; typC[t]=(typC[t]||0)+1; });
+  const maxTyp = Math.max(...Object.values(typC), 1);
+  const typColors = {'Trekking':'#2D5A3D','Gravel':'#B7490D','City/Urban':'#1A5276'};
+  const ja = entries.filter(e=>e.ebike==='Ja').length;
+  const nein = entries.filter(e=>e.ebike==='Nein').length;
 
-  // Replace canvas charts with CSS bars
-  const chartsHtml = `
-    <div style="margin-bottom:1.25rem">
-      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:.75rem">Mittelwerte (mm)</div>
-      ${CHART_MEAS.map(m => {
-        const v = avg(m.key); const maxV2 = Math.max(...CHART_MEAS.map(x => { const a=avg(x.key); return a==='–'?0:parseFloat(a); }).filter(x=>x>0), 1);
-        const w = v==='–' ? 0 : Math.round(parseFloat(v)/maxV2*100);
-        return `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem;font-size:13px">
-          <div style="width:140px;text-align:right;color:var(--muted);font-size:12px">${m.label}</div>
-          <div style="flex:1;background:#f0f0ec;border-radius:4px;height:22px;overflow:hidden">
-            <div style="width:${w}%;height:100%;background:${m.color};border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;font-size:11px;font-weight:600;min-width:2px;transition:width .4s">${v!=='–'?v+' mm':''}</div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:.75rem">Fahrrad-Typen</div>
-        ${(() => { const typC={}; entries.forEach(e=>{const t=e.typ||'Unbekannt';typC[t]=(typC[t]||0)+1;}); const maxT=Math.max(...Object.values(typC),1); const colors={'Trekking':'#2D5A3D','Gravel':'#B7490D','City/Urban':'#1A5276'}; return Object.keys(typC).map(t=>`<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:12px"><div style="width:80px;text-align:right;color:var(--muted)">${t}</div><div style="flex:1;background:#f0f0ec;border-radius:3px;height:18px;overflow:hidden"><div style="width:${Math.round(typC[t]/maxT*100)}%;height:100%;background:${colors[t]||'#6C3483'};display:flex;align-items:center;padding-left:6px;color:#fff;font-size:11px;font-weight:600">${typC[t]}</div></div></div>`).join(''); })()}
-      </div>
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:.75rem">eBike-Anteil</div>
-        ${(() => { const ja=entries.filter(e=>e.ebike==='Ja').length; const nein=entries.filter(e=>e.ebike==='Nein').length; const maxE=Math.max(ja,nein,1); return [['Ja',ja,'#2D5A3D'],['Nein',nein,'#B7490D']].map(([l,v,c])=>`<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;font-size:12px"><div style="width:80px;text-align:right;color:var(--muted)">${l}</div><div style="flex:1;background:#f0f0ec;border-radius:3px;height:18px;overflow:hidden"><div style="width:${Math.round(v/maxE*100)}%;height:100%;background:${c};display:flex;align-items:center;padding-left:6px;color:#fff;font-size:11px;font-weight:600">${v}</div></div></div>`).join(''); })()}
-      </div>
-    </div>`;
+  const chartsDiv = document.getElementById('kpi-grid').parentNode;
+  let chartsHtml = chartsDiv.innerHTML;
 
-  // Replace all canvas elements with CSS charts
-  const anaView = document.getElementById('view-ana');
-  const chartsDiv = anaView.querySelector('.charts-grid') || anaView;
-  if (anaView.querySelector('.charts-grid')) {
-    anaView.querySelector('.charts-grid').innerHTML = chartsHtml;
+  // Replace chart area
+  const chartArea = document.querySelector('.charts-grid');
+  if (chartArea) {
+    chartArea.innerHTML = `
+      <div class="chart-card chart-wide">
+        <div class="chart-title">Mittelwerte (mm)</div>
+        ${MEAS.map(m => { const v=avg(m.key); const w=v==='–'?0:Math.round(parseFloat(v)/maxAvg*100); return `<div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem"><div style="width:150px;text-align:right;font-size:12px;color:var(--muted)">${m.label}</div><div style="flex:1;background:#f0f0ec;border-radius:4px;height:22px;overflow:hidden"><div style="width:${w}%;height:100%;background:${m.color};border-radius:4px;display:flex;align-items:center;padding-left:8px;color:#fff;font-size:11px;font-weight:600;min-width:4px">${v!=='–'?v+' mm':''}</div></div></div>`; }).join('')}
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Fahrrad-Typen</div>
+        ${Object.keys(typC).map(t => `<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem"><div style="width:90px;text-align:right;font-size:12px;color:var(--muted)">${t}</div><div style="flex:1;background:#f0f0ec;border-radius:3px;height:20px;overflow:hidden"><div style="width:${Math.round(typC[t]/maxTyp*100)}%;height:100%;background:${typColors[t]||'#6C3483'};display:flex;align-items:center;padding-left:6px;color:#fff;font-size:11px;font-weight:600">${typC[t]}</div></div></div>`).join('')}
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">eBike-Anteil</div>
+        ${[['Ja',ja,'#2D5A3D'],['Nein',nein,'#B7490D']].map(([l,v,c])=>`<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem"><div style="width:90px;text-align:right;font-size:12px;color:var(--muted)">${l}</div><div style="flex:1;background:#f0f0ec;border-radius:3px;height:20px;overflow:hidden"><div style="width:${n>0?Math.round(v/n*100):0}%;height:100%;background:${c};display:flex;align-items:center;padding-left:6px;color:#fff;font-size:11px;font-weight:600">${v}</div></div></div>`).join('')}
+      </div>`;
   }
 }
 
-
-
-
-
-document.addEventListener("DOMContentLoaded", function() { init(); });
+document.addEventListener('DOMContentLoaded', function() { init(); });
 </script>
 </body>
 </html>
