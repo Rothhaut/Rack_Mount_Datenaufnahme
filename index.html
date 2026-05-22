@@ -53,12 +53,12 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
 .field input[type=number]:focus,.field input[type=text]:focus,.field textarea:focus{box-shadow:0 0 0 3px rgba(45,90,61,.11)}
 
 /* Colored left-border on number inputs */
-.field-gesamtbreite input { border-left: 3px solid var(--c1)!important; }
-.field-lochabstand input  { border-left: 3px solid var(--c2)!important; }
-.field-hoeheAuflage input { border-left: 3px solid var(--c3)!important; }
-.field-abstandOben input  { border-left: 3px solid var(--c4)!important; }
-.field-abstandSchutz input{ border-left: 3px solid var(--c5)!important; }
-.field-gesamthoehe input  { border-left: 3px solid var(--c6)!important; }
+.field-gesamtbreite input { border-left: 3px solid #E63946!important; }
+.field-lochabstand input  { border-left: 3px solid #2196F3!important; }
+.field-abstandOben input  { border-left: 3px solid #FF9800!important; }
+.field-hoeheAuflage input { border-left: 3px solid #9C27B0!important; }
+.field-abstandSchutz input{ border-left: 3px solid #009688!important; }
+.field-gesamthoehe input  { border-left: 3px solid #2196F3!important; }
 
 .input-mm{display:flex;align-items:center;gap:.5rem}
 .input-mm input{flex:1}
@@ -330,11 +330,11 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
       <div class="input-mm"><input type="number" id="f-lochabstand" placeholder="0" min="0" step="0.5"><span>mm</span></div>
     </div>
     <div class="field field-hoeheAuflage">
-      <label><span class="field-dot" style="background:#FF9800"></span>Höhe Auflagefläche Montagebereich</label>
+      <label><span class="field-dot" style="background:#9C27B0"></span>Höhe Auflagefläche Montagebereich</label>
       <div class="input-mm"><input type="number" id="f-hoeheAuflage" placeholder="0" min="0" step="0.5"><span>mm</span></div>
     </div>
     <div class="field field-abstandOben">
-      <label><span class="field-dot" style="background:#9C27B0"></span>Abstand zum Gepäckträger oben</label>
+      <label><span class="field-dot" style="background:#FF9800"></span>Abstand zum Gepäckträger oben</label>
       <div class="input-mm"><input type="number" id="f-abstandOben" placeholder="0" min="0" step="0.5"><span>mm</span></div>
     </div>
     <div class="field field-abstandSchutz">
@@ -342,7 +342,7 @@ header h1{font-size:15px;font-weight:600;letter-spacing:.02em}
       <div class="input-mm"><input type="number" id="f-abstandSchutz" placeholder="0" min="0" step="0.5"><span>mm</span></div>
     </div>
     <div class="field field-gesamthoehe">
-      <label><span class="field-dot" style="background:#4CAF50"></span>Gesamthöhe Montagebereich</label>
+      <label><span class="field-dot" style="background:#2196F3"></span>Gesamthöhe Montagebereich</label>
       <div class="input-mm"><input type="number" id="f-gesamthoehe" placeholder="0" min="0" step="0.5"><span>mm</span></div>
     </div>
   </div>
