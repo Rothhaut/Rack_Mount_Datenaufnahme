@@ -567,13 +567,16 @@ async function saveEntry() {
 
   try {
     const created = await sbFetch('POST', SB_TABLE, row);
-    const entry = sbRowToEntry(Object.assign({}, row, {id: created[0].id}));
+    // created kann Array oder Objekt sein
+    const createdRow = Array.isArray(created) ? created[0] : created;
+    const entry = sbRowToEntry(Object.assign({}, row, {id: createdRow ? createdRow.id : Date.now()}));
     entry.bilder = pendingImages.slice();
     allEntries.unshift(entry);
     toast('Eintrag gespeichert ✓');
     resetForm();
     setStatus('ok', '&#10003; ' + allEntries.length + ' Einträge in Datenbank');
   } catch(e) {
+    console.error('saveEntry error:', e);
     toast('Fehler: ' + e.message, true);
   }
   btn.disabled = false; btn.innerHTML = '&#128190; Eintrag speichern';
